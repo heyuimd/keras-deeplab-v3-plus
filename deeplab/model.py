@@ -101,7 +101,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
 
 
 def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3), classes=21,
-              alpha=1., activation=None):
+              alpha=1., activation=None, model_path=None):
     """ Instantiates the Deeplabv3+ architecture
 
     Optionally loads weights pre-trained
@@ -257,16 +257,18 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
     model = Model(inputs, x, name='deeplabv3plus')
 
     # load weights
-    if weights == 'pascal_voc':
-        weights_path = get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5',
-                                WEIGHTS_PATH_MOBILE,
-                                cache_subdir='models')
-    elif weights == 'cityscapes':
-        weights_path = get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels_cityscapes.h5',
-                                WEIGHTS_PATH_MOBILE_CS,
-                                cache_subdir='models')
-
-    model.load_weights(weights_path, by_name=True)
+    if model_path is None:
+        if weights == 'pascal_voc':
+            weights_path = get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5',
+                                    WEIGHTS_PATH_MOBILE,
+                                    cache_subdir='models')
+        elif weights == 'cityscapes':
+            weights_path = get_file('deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels_cityscapes.h5',
+                                    WEIGHTS_PATH_MOBILE_CS,
+                                    cache_subdir='models')
+        model.load_weights(weights_path, by_name=True)
+    else:
+        model.load_weights(model_path, by_name=True)
 
     return model
 
