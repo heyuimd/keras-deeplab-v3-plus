@@ -121,12 +121,12 @@ def get_data(data_dir, start=None, end=None):
         filename = f'{i:03d}.npy'
         if first:
             first = False
-            im = np.load(os.path.join(data_dir, 'image', filename))
+            im = np.load(os.path.join(data_dir, 'images', filename))
             images = im[np.newaxis]
             im = np.load(os.path.join(data_dir, 'seg', filename))
             masks = im[np.newaxis]
         else:
-            im = np.load(os.path.join(data_dir, 'image', filename))
+            im = np.load(os.path.join(data_dir, 'images', filename))
             images = np.concatenate([images, im[np.newaxis]])
             im = np.load(os.path.join(data_dir, 'seg', filename))
             masks = np.concatenate([masks, im[np.newaxis]])
