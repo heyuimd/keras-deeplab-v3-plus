@@ -211,7 +211,8 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
     b4 = Lambda(lambda x: K.expand_dims(x, 1))(b4)
     b4 = Conv2D(256, (1, 1), padding='same',
                 use_bias=False, name='image_pooling')(b4)
-    b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
+    # The output keeps going nan.
+    #b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
     b4 = Activation('relu')(b4)
     # upsample. have to use compat because of the option align_corners
     size_before = tf.keras.backend.int_shape(x)
