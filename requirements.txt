@@ -4,3 +4,4 @@ Pillow==6.0.0
 numpy
 matplotlib
 tqdm
+opencv-python
