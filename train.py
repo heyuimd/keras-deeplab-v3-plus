@@ -11,7 +11,7 @@ import argparse
 
 class TrainGenerator(Sequence):
 
-    def __init__(self, x, y, seed=7, augmentation_idx=20,
+    def __init__(self, x, y, seed=7,
                  blur=0, horizontal_flip=True, vertical_flip=True,
                  rotation=45.0, zoom=0.2):
 
@@ -24,7 +24,6 @@ class TrainGenerator(Sequence):
         self.y = y
         self.len = x.shape[0]
         self.idx_now = 0
-        self.augmentation_idx = augmentation_idx
         self.blur = blur
         self.horizontal_flip = horizontal_flip
         self.vertical_flip = vertical_flip
@@ -32,7 +31,7 @@ class TrainGenerator(Sequence):
         self.zoom = zoom
 
     def __len__(self):
-        return self.len * self.augmentation_idx
+        return self.len
 
     def __getitem__(self, i):
 
@@ -146,21 +145,27 @@ def main(args):
     v = ValidateGenerator(*get_data(args.data_dir, 100, None))
 
     callbacks = [
+        tf.keras.callbacks.TensorBoard(),
         tf.keras.callbacks.ModelCheckpoint(
-            filepath='model-{epoch:02d}-{val_loss:.5f}.h5',
-            save_best_only=False,
+            filepath='model-{epoch:02d}.h5',
+            save_best_only=True,
             save_weights_only=True,
         ),
-        tf.keras.callbacks.TensorBoard(),
-        tf.keras.callbacks.ReduceLROnPlateau(),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            patience=4,
+            factor=0.1,
+        ),
+        tf.keras.callbacks.EarlyStopping(
+            monitor='val_loss',
+            patience=9
+        ),
     ]
 
     model.fit_generator(
         t,
-        steps_per_epoch=2000,
-        epochs=50,
+        epochs=100,
         validation_data=v,
-        validation_steps=19,
         callbacks=callbacks,
     )
 
