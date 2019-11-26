@@ -20,32 +20,24 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-
-from tensorflow.python.keras.models import Model
-from tensorflow.python.keras import layers
-from tensorflow.python.keras.layers import Input
-from tensorflow.python.keras.layers import Lambda
-from tensorflow.python.keras.layers import Activation
-from tensorflow.python.keras.layers import Concatenate
-from tensorflow.python.keras.layers import Add
-from tensorflow.python.keras.layers import Dropout
-from tensorflow.python.keras.layers import BatchNormalization
-from tensorflow.python.keras.layers import Conv2D
-from tensorflow.python.keras.layers import DepthwiseConv2D
-from tensorflow.python.keras.layers import ZeroPadding2D
-from tensorflow.python.keras.layers import GlobalAveragePooling2D
-from tensorflow.python.keras.utils.layer_utils import get_source_inputs
-from tensorflow.python.keras.utils.data_utils import get_file
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.activations import relu
-from tensorflow.python.keras.applications.imagenet_utils import preprocess_input
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import UpSampling2D
+from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import DepthwiseConv2D
+from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.utils import get_source_inputs
+from tensorflow.keras.utils import get_file
 
 WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
 WEIGHTS_PATH_MOBILE_CS = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.2/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels_cityscapes.h5"
-
-
-def relu6(x):
-    return relu(x, max_value=6)
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -72,7 +64,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
                    name=prefix + 'expand')(x)
         x = BatchNormalization(epsilon=1e-3, momentum=0.999,
                                name=prefix + 'expand_BN')(x)
-        x = Activation(relu6, name=prefix + 'expand_relu')(x)
+        x = Activation(tf.nn.relu6, name=prefix + 'expand_relu')(x)
     else:
         prefix = 'expanded_conv_'
     # Depthwise
@@ -82,7 +74,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
     x = BatchNormalization(epsilon=1e-3, momentum=0.999,
                            name=prefix + 'depthwise_BN')(x)
 
-    x = Activation(relu6, name=prefix + 'depthwise_relu')(x)
+    x = Activation(tf.nn.relu6, name=prefix + 'depthwise_relu')(x)
 
     # Project
     x = Conv2D(pointwise_filters,
@@ -155,7 +147,7 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
                use_bias=False, name='Conv')(img_input)
     x = BatchNormalization(
         epsilon=1e-3, momentum=0.999, name='Conv_BN')(x)
-    x = Activation(relu6, name='Conv_Relu6')(x)
+    x = Activation(tf.nn.relu6, name='Conv_Relu6')(x)
 
     x = _inverted_res_block(x, filters=16, alpha=alpha, stride=1,
                             expansion=1, block_id=0, skip_connection=False)
@@ -204,20 +196,15 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
     # branching for Atrous Spatial Pyramid Pooling
 
     # Image Feature branch
-    shape_before = tf.shape(x)
     b4 = GlobalAveragePooling2D()(x)
     # from (b_size, channels)->(b_size, 1, 1, channels)
-    b4 = Lambda(lambda x: K.expand_dims(x, 1))(b4)
-    b4 = Lambda(lambda x: K.expand_dims(x, 1))(b4)
+    b4 = Reshape((1, 1, 320))(b4)
     b4 = Conv2D(256, (1, 1), padding='same',
                 use_bias=False, name='image_pooling')(b4)
-    # The output keeps going nan.
-    #b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
+    b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
     b4 = Activation('relu')(b4)
-    # upsample. have to use compat because of the option align_corners
-    size_before = tf.keras.backend.int_shape(x)
-    b4 = Lambda(lambda x: tf.compat.v1.image.resize(
-        x, size_before[1:3], method='bilinear', align_corners=True))(b4)
+    # upsample
+    b4 = UpSampling2D(64, interpolation='bilinear')(b4)
     # simple 1x1
     b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
     b0 = BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
@@ -240,9 +227,7 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
         last_layer_name = 'custom_logits_semantic'
 
     x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-    size_before3 = tf.keras.backend.int_shape(img_input)
-    x = Lambda(lambda xx: tf.compat.v1.image.resize(
-        xx, size_before3[1:3], method='bilinear', align_corners=True))(x)
+    x = UpSampling2D(8, interpolation='bilinear')(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -252,7 +237,7 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
         inputs = img_input
 
     if activation in {'softmax', 'sigmoid'}:
-        x = tf.keras.layers.Activation(activation)(x)
+        x = Activation(activation)(x)
 
     model = Model(inputs, x, name='deeplabv3plus')
 
@@ -273,12 +258,3 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
 
     return model
 
-
-def preprocess_input(x):
-    """Preprocesses a numpy array encoding a batch of images.
-    # Arguments
-        x: a 4D numpy array consists of RGB values within [0, 255].
-    # Returns
-        Input array scaled to [-1.,1.]
-    """
-    return preprocess_input(x, mode='tf')

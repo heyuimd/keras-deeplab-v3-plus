@@ -158,13 +158,13 @@ def main(args):
         ),
         tf.keras.callbacks.EarlyStopping(
             monitor='val_loss',
-            patience=9
+            patience=19
         ),
     ]
 
     model.fit_generator(
         t,
-        epochs=100,
+        epochs=200,
         validation_data=v,
         callbacks=callbacks,
     )
